@@ -2,9 +2,10 @@
 #include <algorithm>
 #include <iostream>
 
-// Constructor: initializes matchmaker with team size and MMR gap settings
-Matchmaker::Matchmaker(int teamSize, int maxMmrGap)
-    : m_teamSize(teamSize), m_maxMmrGap(maxMmrGap), m_nextMatchId(1) {}
+// Constructor: initializes matchmaker with team size, MMR gap, and mode
+Matchmaker::Matchmaker(int teamSize, int maxMmrGap, bool ranked)
+    : m_teamSize(teamSize), m_maxMmrGap(maxMmrGap), m_nextMatchId(1),
+      m_ranked(ranked) {}
 
 // Adds a player to the waiting queue and prints confirmation
 void Matchmaker::enqueue(std::shared_ptr<Player> player) {
@@ -26,7 +27,7 @@ int Matchmaker::formMatches() {
     }
 
     // Build matches from the sorted pool
-    std::vector<Match> newMatches = buildMatchesFromPool(pool);
+    std::vector<std::shared_ptr<Match>> newMatches = buildMatchesFromPool(pool);
 
     // Unmatched players go back into the queue
     for (auto& p : pool) {
@@ -44,8 +45,8 @@ int Matchmaker::formMatches() {
 
 // Sorts players by MMR ascending, then uses a greedy sliding window
 // to group consecutive players whose MMR spread is within the max gap.
-// Players that can't be matched are left in the pool vector.
-std::vector<Match> Matchmaker::buildMatchesFromPool(
+// Creates Match or RankedMatch depending on mode.
+std::vector<std::shared_ptr<Match>> Matchmaker::buildMatchesFromPool(
     std::vector<std::shared_ptr<Player>>& pool)
 {
     // Sort by MMR so similar-skill players are adjacent
@@ -54,7 +55,7 @@ std::vector<Match> Matchmaker::buildMatchesFromPool(
             return a->getMmr() < b->getMmr();
         });
 
-    std::vector<Match> matches;
+    std::vector<std::shared_ptr<Match>> matches;
     std::vector<std::shared_ptr<Player>> unmatched;
 
     int i = 0;
@@ -67,16 +68,23 @@ std::vector<Match> Matchmaker::buildMatchesFromPool(
 
         if (hi - lo <= m_maxMmrGap) {
             // MMR gap is acceptable — form a valid match
-            Match match;
-            match.matchId = m_nextMatchId++;
-            match.players.assign(pool.begin() + i, pool.begin() + i + m_teamSize);
+            std::vector<std::shared_ptr<Player>> group(
+                pool.begin() + i, pool.begin() + i + m_teamSize);
 
             // Calculate the average MMR for this match
             int sum = 0;
-            for (auto& p : match.players) sum += p->getMmr();
-            match.averageMmr = sum / m_teamSize;
+            for (auto& p : group) sum += p->getMmr();
+            int avgMmr = sum / m_teamSize;
 
-            matches.push_back(std::move(match));
+            // Create either a normal Match or a RankedMatch
+            if (m_ranked) {
+                matches.push_back(
+                    std::make_shared<RankedMatch>(m_nextMatchId++, std::move(group), avgMmr));
+            } else {
+                matches.push_back(
+                    std::make_shared<Match>(m_nextMatchId++, std::move(group), avgMmr));
+            }
+
             i += m_teamSize;
         } else {
             // MMR gap too large — skip the lowest player to unmatched
@@ -102,34 +110,22 @@ int Matchmaker::getQueueSize() const {
     return m_waitingQueue.size();
 }
 
-// Returns a const reference to the completed matches history
-const std::vector<Match>& Matchmaker::getCompletedMatches() const {
-    return m_completedMatches;
-}
-
 // Prints all players currently in the waiting queue
 void Matchmaker::displayQueue() const {
     if (m_waitingQueue.isEmpty()) {
         std::cout << "  Queue is empty.\n";
         return;
     }
-
-    // Use the Queue's display method to traverse the circular linked list
     m_waitingQueue.display(std::cout);
 }
 
-// Prints all completed matches with match ID, average MMR, and player details
+// Prints all completed matches using polymorphic display
 void Matchmaker::displayMatches() const {
     if (m_completedMatches.empty()) {
-        std::cout << "  No matches formed yet.\n";
+        std::cout << "  No matches yet.\n";
         return;
     }
-
     for (const auto& match : m_completedMatches) {
-        std::cout << "--- Match #" << match.matchId
-                  << " (Avg MMR: " << match.averageMmr << ") ---\n";
-        for (const auto& p : match.players) {
-            std::cout << "  " << *p << "\n";
-        }
+        match->display(std::cout);
     }
 }

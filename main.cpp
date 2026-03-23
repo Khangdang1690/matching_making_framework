@@ -1,9 +1,8 @@
 // Main driver for the Matchmaking Queue System.
-// Provides an interactive menu for adding players, viewing the queue,
-// running the matchmaker, and viewing match history.
+// Two match types: Normal (casual) and Ranked (competitive).
+// Each has its own queue and matchmaker. All players are the same.
 
 #include "Player.h"
-#include "RankedPlayer.h"
 #include "Matchmaker.h"
 #include <iostream>
 #include <memory>
@@ -34,16 +33,16 @@ static std::string readString(const std::string& prompt) {
 }
 
 // Prompts the user to pick a rank tier (Bronze through Diamond)
-static RankedPlayer::Tier readTier() {
+static Player::Tier readTier() {
     std::cout << "  Pick a rank: 1=Bronze  2=Silver  3=Gold  4=Platinum  5=Diamond\n";
     while (true) {
         int choice = readInt("  Rank (1-5): ");
         switch (choice) {
-            case 1: return RankedPlayer::Tier::Bronze;
-            case 2: return RankedPlayer::Tier::Silver;
-            case 3: return RankedPlayer::Tier::Gold;
-            case 4: return RankedPlayer::Tier::Platinum;
-            case 5: return RankedPlayer::Tier::Diamond;
+            case 1: return Player::Tier::Bronze;
+            case 2: return Player::Tier::Silver;
+            case 3: return Player::Tier::Gold;
+            case 4: return Player::Tier::Platinum;
+            case 5: return Player::Tier::Diamond;
             default: std::cout << "  Pick 1-5.\n";
         }
     }
@@ -54,27 +53,25 @@ int main() {
               << "       MATCHMAKING QUEUE SYSTEM\n"
               << "========================================\n\n"
 
-              << "This program simulates online game matchmaking.\n"
-              << "It groups players with similar skill into fair matches.\n\n"
+              << "This program simulates online game matchmaking\n"
+              << "with two match types:\n\n"
 
-              << "QUICK START:\n"
-              << "  1. First, enter a Team Size and Max MMR Gap (see below).\n"
-              << "  2. Add a few players (option 1) or ranked players (option 2).\n"
-              << "     - Give each player a name and an MMR (skill rating).\n"
-              << "     - MMR is just a number: higher = more skilled.\n"
-              << "       Example: 800 = beginner, 1200 = average, 1800 = expert\n"
-              << "     - Ranked players also have a rank (Bronze-Diamond)\n"
-              << "       and a win/loss record, showing inheritance in action.\n"
-              << "  3. Select \"Find Matches\" (option 4) to pair them up.\n"
-              << "     - Players within the MMR gap get matched together.\n"
-              << "     - Players too far apart in skill stay in the queue.\n"
-              << "  4. View results with \"View Match History\" (option 5).\n\n"
+              << "  NORMAL MATCH  - casual, just for fun\n"
+              << "  RANKED MATCH  - competitive, picks a winner\n\n"
 
-              << "SETUP (enter these now):\n"
-              << "  Team Size   = players needed per match\n"
-              << "                (enter 2 for 1v1, or 4 for 2v2)\n"
-              << "  Max MMR Gap = largest skill gap allowed in one match\n"
-              << "                (enter 200 for a good demo)\n\n"
+              << "Every player has a name, MMR, and rank.\n"
+              << "  MMR  = skill rating (higher = better)\n"
+              << "  Rank = Bronze, Silver, Gold, Platinum, or Diamond\n\n"
+
+              << "How it works:\n"
+              << "  1. Add players to the Normal or Ranked queue.\n"
+              << "  2. \"Find Matches\" groups similar-skill players.\n"
+              << "  3. Players too far apart in skill stay in the queue.\n"
+              << "  4. Ranked matches also determine a winner!\n\n"
+
+              << "Setup:\n"
+              << "  Team Size   = players per match (enter 2 for 1v1)\n"
+              << "  Max MMR Gap = biggest skill gap allowed (enter 200)\n\n"
 
               << "========================================\n\n";
 
@@ -82,16 +79,17 @@ int main() {
     int teamSize  = readInt("Team size (players per match): ");
     int maxMmrGap = readInt("Max MMR gap: ");
 
-    // Create the matchmaker with user-specified settings
-    Matchmaker matchmaker(teamSize, maxMmrGap);
-    int nextId = 1;  // Auto-incrementing player ID
+    // Two matchmakers: normal (casual) and ranked (competitive)
+    Matchmaker normalMM(teamSize, maxMmrGap, false);
+    Matchmaker rankedMM(teamSize, maxMmrGap, true);
+    int nextId = 1;  // Shared auto-incrementing player ID
 
-    // Main menu loop — runs until user selects Exit
+    // Main menu loop
     while (true) {
         std::cout << "\n=== Menu ===\n"
-                  << "1. Add Player\n"
-                  << "2. Add Ranked Player\n"
-                  << "3. View Queue\n"
+                  << "1. Join Normal Match\n"
+                  << "2. Join Ranked Match\n"
+                  << "3. View Queues\n"
                   << "4. Find Matches\n"
                   << "5. View Match History\n"
                   << "6. Exit\n";
@@ -99,42 +97,51 @@ int main() {
 
         switch (choice) {
         case 1: {
-            // Add a casual player (name + MMR only)
+            // Add a player to the normal (casual) queue
             std::string name = readString("  Name: ");
-            int mmr = readInt("  MMR (skill rating): ");
-            matchmaker.enqueue(std::make_shared<Player>(nextId++, name, mmr));
+            int mmr = readInt("  MMR: ");
+            Player::Tier tier = readTier();
+            normalMM.enqueue(std::make_shared<Player>(nextId++, name, mmr, tier));
             break;
         }
         case 2: {
-            // Add a ranked player (name + MMR + rank + win/loss record)
+            // Add a player to the ranked (competitive) queue
             std::string name = readString("  Name: ");
-            int mmr = readInt("  MMR (skill rating): ");
-            RankedPlayer::Tier tier = readTier();
-            int wins   = readInt("  Wins: ");
-            int losses = readInt("  Losses: ");
-            matchmaker.enqueue(std::make_shared<RankedPlayer>(
-                nextId++, name, mmr, tier, wins, losses));
+            int mmr = readInt("  MMR: ");
+            Player::Tier tier = readTier();
+            rankedMM.enqueue(std::make_shared<Player>(nextId++, name, mmr, tier));
             break;
         }
         case 3:
-            // Show all players currently waiting in the queue
-            std::cout << "\n=== Queue (" << matchmaker.getQueueSize() << " players) ===\n";
-            matchmaker.displayQueue();
+            // Show both queues
+            std::cout << "\n--- Normal Queue (" << normalMM.getQueueSize() << " players) ---\n";
+            normalMM.displayQueue();
+            std::cout << "\n--- Ranked Queue (" << rankedMM.getQueueSize() << " players) ---\n";
+            rankedMM.displayQueue();
             break;
         case 4: {
-            // Run the matchmaker to pair up players with similar MMR
-            std::cout << "\n=== Finding Matches ===\n";
-            int formed = matchmaker.formMatches();
-            std::cout << "Formed " << formed << " match(es).\n";
-            if (matchmaker.getQueueSize() > 0) {
-                std::cout << matchmaker.getQueueSize() << " player(s) still waiting.\n";
-            }
+            // Run matchmaking on both queues separately
+            std::cout << "\n--- Normal Matches ---\n";
+            int nFormed = normalMM.formMatches();
+            std::cout << "Formed " << nFormed << " normal match(es).";
+            if (normalMM.getQueueSize() > 0)
+                std::cout << " " << normalMM.getQueueSize() << " still waiting.";
+            std::cout << "\n";
+
+            std::cout << "\n--- Ranked Matches ---\n";
+            int rFormed = rankedMM.formMatches();
+            std::cout << "Formed " << rFormed << " ranked match(es).";
+            if (rankedMM.getQueueSize() > 0)
+                std::cout << " " << rankedMM.getQueueSize() << " still waiting.";
+            std::cout << "\n";
             break;
         }
         case 5:
-            // Display all previously formed matches
-            std::cout << "\n=== Match History ===\n";
-            matchmaker.displayMatches();
+            // Show match history for both types
+            std::cout << "\n--- Normal Match History ---\n";
+            normalMM.displayMatches();
+            std::cout << "\n--- Ranked Match History ---\n";
+            rankedMM.displayMatches();
             break;
         case 6:
             std::cout << "Goodbye!\n";

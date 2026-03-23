@@ -1,18 +1,19 @@
 # Multiplayer Game Matchmaking Queue
 
-A C++ matchmaking framework that uses a queue-based system to group players into balanced games based on skill rating (MMR).
+A C++ matchmaking system that groups players into fair games based on skill rating (MMR). Supports two match types: Normal (casual) and Ranked (competitive with a winner).
 
 ## How It Works
 
-1. Players enqueue into a waiting pool
-2. Matchmaker sorts players by MMR and groups them using a sliding-window algorithm
-3. Only players within a configurable MMR gap are matched together
-4. Unmatched outliers remain in the queue for the next cycle
+1. Players join either the Normal or Ranked queue
+2. Each player has a name, MMR (skill rating), and rank (Bronze–Diamond)
+3. The matchmaker groups similar-skill players using a sliding-window algorithm
+4. Players too far apart in skill stay in the queue for next time
+5. Ranked matches also determine a winner (highest MMR player)
 
 ## Build & Run
 
 ```bash
-g++ -std=c++17 -Wall -Wextra -o matchmaker main.cpp Player.cpp RankedPlayer.cpp Matchmaker.cpp
+g++ -std=c++17 -Wall -Wextra -o matchmaker main.cpp Player.cpp Match.cpp RankedMatch.cpp Matchmaker.cpp
 ./matchmaker
 ```
 
@@ -20,24 +21,26 @@ g++ -std=c++17 -Wall -Wextra -o matchmaker main.cpp Player.cpp RankedPlayer.cpp 
 
 | File | Description |
 |------|-------------|
-| `Player.h / .cpp` | Base player class (ID, name, MMR) |
-| `RankedPlayer.h / .cpp` | Derived class with rank tier and win/loss stats |
+| `Player.h / .cpp` | Player class (ID, name, MMR, rank tier) |
+| `Match.h / .cpp` | Base match class (normal/casual matches) |
+| `RankedMatch.h / .cpp` | Derived match class (competitive, picks a winner) |
 | `Matchmaker.h / .cpp` | Queue management and matching algorithm |
-| `main.cpp` | Driver program demonstrating the system |
+| `Queue.h` | Custom templated queue using a circularly linked list |
+| `main.cpp` | Interactive menu-driven program |
 
 ## Task Distribution
 
 ### Tam (33.3%)
 - `Player.h` and `Player.cpp`
-- Base class design (constructors, getters, setters)
-- Virtual `display()` and `operator<<` overload
+- Player class design (constructors, getters, setters, rank tier)
+- `display()` method and `operator<<` overload
 
 ### Khang (33.3%)
-- `RankedPlayer.h` and `RankedPlayer.cpp`
-- Inheritance from Player, `Tier` enum
-- Win/loss tracking and `display()` override
+- `Match.h`, `Match.cpp`, `RankedMatch.h`, `RankedMatch.cpp`
+- Match/RankedMatch inheritance and polymorphic `display()`
+- Winner determination logic in RankedMatch
 
 ### Tuan (33.3%)
-- `Matchmaker.h`, `Matchmaker.cpp`, and `main.cpp`
-- Queue + sort-and-partition matching algorithm
-- Driver program and demo output
+- `Matchmaker.h`, `Matchmaker.cpp`, `Queue.h`, and `main.cpp`
+- Custom queue (circularly linked list) + matching algorithm
+- Interactive menu and program flow
