@@ -1,3 +1,7 @@
+// Main driver for the Matchmaking Queue System.
+// Provides an interactive menu for adding players, viewing the queue,
+// running the matchmaker, and viewing match history.
+
 #include "Player.h"
 #include "RankedPlayer.h"
 #include "Matchmaker.h"
@@ -6,6 +10,7 @@
 #include <string>
 #include <limits>
 
+// Prompts the user for an integer, retrying on invalid input
 static int readInt(const std::string& prompt) {
     int value;
     while (true) {
@@ -20,6 +25,7 @@ static int readInt(const std::string& prompt) {
     }
 }
 
+// Prompts the user for a string using getline (supports spaces in names)
 static std::string readString(const std::string& prompt) {
     std::string value;
     std::cout << prompt;
@@ -27,6 +33,7 @@ static std::string readString(const std::string& prompt) {
     return value;
 }
 
+// Displays the tier options and prompts the user to select one (1-5)
 static RankedPlayer::Tier readTier() {
     std::cout << "  Select tier:\n"
               << "    1. Bronze\n"
@@ -89,12 +96,15 @@ int main() {
 
               << "============================================================\n\n";
 
+    // Prompt user for matchmaker configuration
     int teamSize  = readInt("Team size (players per match): ");
     int maxMmrGap = readInt("Max MMR gap: ");
 
+    // Create the matchmaker with user-specified settings
     Matchmaker matchmaker(teamSize, maxMmrGap);
-    int nextId = 1;
+    int nextId = 1;  // Auto-incrementing player ID
 
+    // Main menu loop — runs until user selects Exit
     while (true) {
         std::cout << "\n=== Matchmaking System ===\n"
                   << "1. Add Player\n"
