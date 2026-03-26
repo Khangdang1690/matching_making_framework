@@ -11,7 +11,7 @@ A C++ matchmaking system that groups players into fair games based on skill rati
 5. Ranked matches also determine a winner (highest MMR player)
 
 ## Build & Run
-
+ 
 ```bash
 g++ -std=c++17 -Wall -Wextra -o matchmaker main.cpp Player.cpp Match.cpp RankedMatch.cpp Matchmaker.cpp
 ./matchmaker
